@@ -3,55 +3,103 @@ module Eff.Source where
 import Eff.Prelude
 import Data.Text qualified as T
 
-{-
-Untyped
-There is *no* name resolution, so all names are effectively global
-Effects are represented by an action index
+-- An implementation of System F𝜖 extended with basic integer PrimOps
 
-handleExpr (perform 0 42) {
-    0 x -> x + 1;
-    1 x -> -1;
-}
-= 43
-
--}
-
-data Decl = DefFun Name [Name] Expr deriving (Show, Eq, Generic)
-
-        -- LC
-data Expr = IntLit Int
-          | Var Name
-          | App Expr [Expr]
-          | Lambda [Name] Expr -- Non-capturing lambda
-          | Let Name Expr Expr
-          | Seq Expr Expr
-          | If Expr Expr Expr -- if 0 _ z = z; if _ y _ = y
-        -- PrimOps
-          | Add Expr Expr
-          | UnsafeSet Name Expr
-          | LE Expr Expr
-        -- Effects
-          | Perform Int Expr
-          | HandleEff Int Expr [Expr] Name Expr
-          | Continue Expr -- Should only be called in a HandleEff clause. Abort is simply handled by *not* calling Continue.
-          --  | Reify Name -- Captures the continuation (by copying the call stack)
+data Decl = Def Name Expr 
+          | DefEff Name EffSig
           deriving (Show, Eq, Generic)
 
+data Expr = EVal Value            -- v
+          | App Expr Expr         -- e e
+          | AppType Expr Type     -- e 𝜎
+
+          | Let Name Type Expr Expr   -- let x : 𝜎 = e1 in e2 === (𝜆[𝜖] x : 𝜎. e2) e1
+          -- Prim
+          | Add Expr Expr         -- e + e
+          | LE Expr Expr          -- e ≤ e
+          | If Expr Expr Expr     -- if e then e else e
+          deriving (Show, Eq, Generic)
+
+          -- System F𝜖
+data Value = Var Name                     -- x
+          | Lambda EffRow Name Type Expr  -- 𝜆[𝜖] x : 𝜎. e
+          | TyLambda Name Kind Value      -- Λ𝛼[𝜅] . v
+          | Handler Handler               -- handler h
+          | Perform Op EffRow [Type]      -- perform op 𝜖 𝜎*
+          -- Prim
+          | IntLit Int                   -- n
+          deriving (Show, Eq, Generic)
+
+newtype Handler = MkHandler [(Op, Expr)] -- { (opi ↦ fi)* }
+                deriving (Show, Eq, Generic)
+
+data Type = TyVar Name Kind             -- 𝛼[𝜅]
+          | TyCon Name Kind [Type]      -- c[𝜅] 𝜎*
+          | TFun Type EffRow Type       -- 𝜎 -{𝜖}> 𝜎
+          | TForall Name Kind Type      -- ∀𝛼[𝜅] . 𝜎
+          deriving (Show, Eq, Generic)
+
+data EffRow = EffNil              -- ⟨⟩
+            | EffCons Name EffRow -- ⟨l | 𝜖⟩
+            deriving (Show, Eq, Generic)
+
+data Kind = KType           -- ∗
+          | KArr Kind Kind  -- 𝜅 → 𝜅
+          | Lab             -- lab
+          | Eff             -- eff
+          deriving (Show, Eq, Generic)
+
+newtype EffSig = MkEffSig [(Op, [(Name, Kind)], Type, Type)] -- { op_i : ∀𝛼_i*[𝜅_i]*. 𝜎_i → 𝜎′_i }
+               deriving (Show, Eq, Generic)
+type Op = Name -- ?
+
 instance Pretty Decl where
-    prettyIndent i (DefFun f xs e) = f <> "(" <> T.intercalate ", " xs <> ") = \n" <> indent (i + 1) <> prettyIndent (i + 1) e
+  prettyIndent i (Def x e) = x <> " := " <> prettyIndent (i + 1) e
+  prettyIndent i (DefEff ename esig) = "effect " <> ename <> " := " <> prettyIndent (i + 1) esig
 
 instance Pretty Expr where
-    prettyIndent i (IntLit n) = show n
-    prettyIndent i (Var x) = x
-    prettyIndent i (App f xs) = prettyIndent i f <> "(" <> T.intercalate ", " (map (prettyIndent (i + 1)) xs) <> ")"
-    prettyIndent i (Lambda xs e) = "(\\(" <> T.intercalate ", " xs <> ") -> " <> prettyIndent (i + 1) e <> ")"
-    prettyIndent i (Let x e1 e2) = "let " <> x <> " = " <> prettyIndent (i + 1) e1 <> "\n" <> indent i <> "in " <> prettyIndent i e2
-    prettyIndent i (Seq e1 e2) = "seq " <> prettyIndent (i + 1) e1 <> "\n" <> indent i <> "in " <> prettyIndent (i + 1) e2
-    prettyIndent i (If c e1 e2) = "if " <> prettyIndent (i + 1) c <> "\n" <> indent i <> "then \n" <> indent (i + 1) <> prettyIndent (i + 1) e1 <> "\n" <> indent i <> "else \n" <> indent (i + 1) <> prettyIndent (i + 1) e2 
-    prettyIndent i (Add x y) = "(" <> prettyIndent i x <> " + " <> prettyIndent i y <> ")"
-    prettyIndent i (UnsafeSet x e) = "unsafeSet x = " <> prettyIndent (i + 1) e
-    prettyIndent i (LE x y) = "(" <> prettyIndent i x <> " <= " <> prettyIndent i y <> ")"
-    prettyIndent i (Perform action e) = "perform " <> show action <> " with " <> prettyIndent (i + 1) e
-    prettyIndent i (HandleEff eff e args res action) = "handle[" <> show eff <> "] " <> prettyIndent (i + 1) e <> "(" <> T.intercalate ", " (map (prettyIndent (i + 1)) args) <> ") with " <>
-      res <> "-> \n" <> indent (i + 1) <> prettyIndent (i + 1) action
-    prettyIndent i (Continue e) = "continue " <> prettyIndent (i + 1) e
+  prettyIndent i (EVal v) = prettyIndent i v
+  prettyIndent i (App e1 e2) = "(" <> prettyIndent (i + 1) e1 <> " " <> prettyIndent (i + 1) e2 <> ")"
+  prettyIndent i (AppType e ty) = "(" <> prettyIndent (i + 1) e <> " " <> prettyIndent (i + 1) ty <> ")"
+  prettyIndent i (Let x ty e1 e2) = "(let " <> x <> " : " <> prettyIndent (i + 1) ty <> " =\n"
+                                    <> indent (i + 1) <> prettyIndent (i + 2) e1
+                                    <> indent i <> "in" <> prettyIndent i e2
+  prettyIndent i (Add e1 e2) = "(" <> prettyIndent (i + 1) e1 <> " + " <> prettyIndent (i + 1) e2 <> ")"
+  prettyIndent i (LE e1 e2) = "(" <> prettyIndent (i + 1) e1 <> " ≤ " <> prettyIndent (i + 1) e2 <> ")"
+  prettyIndent i (If e1 e2 e3) = "(if " <> prettyIndent (i + 1) e1 
+                              <> "\n" <> indent (i + 1) <> "then " <> prettyIndent (i + 2) e2
+                              <> "\n" <> indent (i + 1) <> "else " <> prettyIndent (i + 2) e3 <> ")"
+
+instance Pretty Value where
+  prettyIndent i (Var x) = x
+  prettyIndent i (Lambda eff x ty e) = "(𝜆[" <> prettyIndent (i + 1) eff <> "] "<> x <> " : " <> prettyIndent (i + 1) ty <> ". " <> prettyIndent (i + 1) e <> ")"
+  prettyIndent i (TyLambda x k v) = "(Λ" <> x <> "[" <> prettyIndent (i + 1) k <> "]. " <> prettyIndent (i + 1) v
+  prettyIndent i (Handler h) = "(handler " <> prettyIndent (i + 1) h <> ")"
+  prettyIndent i (Perform op eff tys) = "(perform " <> op <> " " <> prettyIndent (i + 1) eff <> " " <> unwords (map (prettyIndent (i + 1)) tys) <> ")"
+  prettyIndent i (IntLit n) = show n
+
+instance Pretty Handler where
+  prettyIndent i (MkHandler cases) = "{\n"
+    <> unlines (map (\(o, f) -> indent (i + 1) <> o <> " |-> " <> prettyIndent (i + 1) f) cases)
+    <> indent i <> "}"
+
+instance Pretty Type where
+  prettyIndent i (TyVar alpha k) = alpha <> "[" <> prettyIndent i k <> "]"
+  prettyIndent i (TyCon c k args) = "(" <> c <> "[" <> prettyIndent i k <> "] " <> unwords (map (prettyIndent i) args) <> ")"
+  prettyIndent i (TFun a EffNil b) = prettyIndent i a <> " -> " <> prettyIndent i b
+  prettyIndent i (TFun a e b) = prettyIndent i a <> " -{" <> prettyIndent i e <> "}> " <> prettyIndent i b
+  prettyIndent i (TForall a k t) = "(∀" <> a <> "[" <> prettyIndent i k <> "] " <> prettyIndent i t <> ")"
+
+instance Pretty EffRow where 
+  prettyIndent i EffNil = "⟨⟩"
+  prettyIndent i (EffCons e es) = "⟨" <> e <> " | " <> prettyIndent i es <> "⟩"
+
+instance Pretty Kind where
+  prettyIndent i KType = "*"
+  prettyIndent i (KArr a b) = "(" <> prettyIndent i a <> " -> " <> prettyIndent i b <> ")"
+  prettyIndent i Lab = "lab"
+  prettyIndent i Eff = "eff"
+
+
+instance Pretty EffSig where
+

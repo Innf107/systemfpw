@@ -23,6 +23,8 @@ import Relude as Export hiding (
     ,   runState
 
     ,   fromException
+    ,   Op
+    ,   Type
     )
 import Relude.Extra as Export
 

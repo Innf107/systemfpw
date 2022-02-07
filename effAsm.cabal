@@ -27,10 +27,13 @@ library
   exposed-modules:
       Eff.ASMx64
       Eff.Codegen.Eff
+      Eff.Codegen.SourceToRacket
       Eff.Codegen.SourceToStack
       Eff.Codegen.StackToASM
+      Eff.Fresh
       Eff.Prelude
       Eff.Pretty
+      Eff.Racket
       Eff.Source
       Eff.Stack
   other-modules:

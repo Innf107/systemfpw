@@ -22,8 +22,9 @@ data DeclState = DeclState {
 makeLenses ''DeclState
 
 compile :: [Decl] -> Sem r [Def]
-compile = fmap concat . evalState initialCompState . traverse (evalState initialDeclState . compileDecl)
+compile = undefined -- fmap concat . evalState initialCompState . traverse (evalState initialDeclState . compileDecl)
     
+{-
 initialDeclState :: DeclState
 initialDeclState = DeclState {
     _baseOffset = 0
@@ -212,3 +213,4 @@ newLabel :: Members '[State CompState] r => Sem r Int
 newLabel = gets _nextLabel <* modify (nextLabel %~ (+ 1))
 
 
+-}
