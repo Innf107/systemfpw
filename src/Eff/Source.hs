@@ -25,12 +25,12 @@ data Value = Var Name                     -- x
           | Lambda EffRow Name Type Expr  -- 𝜆[𝜖] x : 𝜎. e
           | TyLambda Name Kind Value      -- Λ𝛼[𝜅] . v
           | Handler Handler               -- handler h
-          | Perform Op EffRow [Type]      -- perform op 𝜖 𝜎*
+          | Perform Name Op EffRow [Type]      -- perform[l] op 𝜖 𝜎*
           -- Prim
           | IntLit Int                   -- n
           deriving (Show, Eq, Generic)
 
-newtype Handler = MkHandler [(Op, Expr)] -- { (opi ↦ fi)* }
+data Handler = MkHandler Name [(Op, (Name, Name, Expr))] -- [l]{ (opi ↦ fi)* }
                 deriving (Show, Eq, Generic)
 
 data Type = TyVar Name Kind             -- 𝛼[𝜅]
@@ -75,12 +75,12 @@ instance Pretty Value where
   prettyIndent i (Lambda eff x ty e) = "(𝜆[" <> prettyIndent (i + 1) eff <> "] "<> x <> " : " <> prettyIndent (i + 1) ty <> ". " <> prettyIndent (i + 1) e <> ")"
   prettyIndent i (TyLambda x k v) = "(Λ" <> x <> "[" <> prettyIndent (i + 1) k <> "]. " <> prettyIndent (i + 1) v
   prettyIndent i (Handler h) = "(handler " <> prettyIndent (i + 1) h <> ")"
-  prettyIndent i (Perform op eff tys) = "(perform " <> op <> " " <> prettyIndent (i + 1) eff <> " " <> unwords (map (prettyIndent (i + 1)) tys) <> ")"
+  prettyIndent i (Perform l op eff tys) = "(perform[" <> l <> "] " <> op <> " " <> prettyIndent (i + 1) eff <> " " <> unwords (map (prettyIndent (i + 1)) tys) <> ")"
   prettyIndent i (IntLit n) = show n
 
 instance Pretty Handler where
-  prettyIndent i (MkHandler cases) = "{\n"
-    <> unlines (map (\(o, f) -> indent (i + 1) <> o <> " |-> " <> prettyIndent (i + 1) f) cases)
+  prettyIndent i (MkHandler l cases) = "[" <> l <> "]{\n"
+    <> unlines (map (\(o, (k, v, e)) -> indent (i + 1) <> o <> " |-> 𝜆" <> k <> " " <> v <> ". " <> prettyIndent (i + 1) e) cases)
     <> indent i <> "}"
 
 instance Pretty Type where
@@ -102,4 +102,7 @@ instance Pretty Kind where
 
 
 instance Pretty EffSig where
-
+  prettyIndent i (MkEffSig ops) = "{\n" <> unlines (map prettyOpSig ops) <> "}"
+    where
+      prettyOpSig (op, [], inTy, outTy)  = indent (i + 1) <> op <> " : " <> prettyIndent (i + 1) inTy <> " -> " <> prettyIndent (i + 1) outTy
+      prettyOpSig (op, tvs, inTy, outTy) = indent (i + 1) <> op <> " : ∀" <> unwords (map (\(alpha, k) -> alpha <> "[" <> prettyIndent (i + 1) k <> "]") tvs) <> ". "  <> prettyIndent (i + 1) inTy <> " -> " <> prettyIndent (i + 1) outTy

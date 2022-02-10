@@ -9,81 +9,127 @@ import Eff.Codegen.SourceToRacket as Source2Racket
 import Eff.Codegen.StackToASM as Stack2ASM
 import Eff.Fresh
 
-effTest :: [Decl]
-effTest = [
-        Def "test" (EVal $ Lambda EffNil "u" unitT (
-            Let "x" intT (undefined {-Perform 0 (EVal $ IntLit 0)-}) 
-            $ Let "y" intT (undefined {-Perform 1 (Add (EVal $ Var "x") (EVal $ IntLit 1))-})
-            $ undefined -- Perform 0 (EVal $ IntLit 0)
-        ))
+-- This works!!!
+readerTest :: [Decl]
+readerTest = [
+        DefEff "Reader" $ MkEffSig [
+            ("ask", [], unitT, intT)
+        ]
+ 
+    ,   let epsilon = (EffCons "Reader" EffNil) in
+        Def "test" (EVal $ Lambda epsilon "x" unitT 
+            (Add 
+                (App (EVal $ Perform "Reader" "ask" epsilon []) (EVal unitVal)) 
+                (App (EVal $ Perform "Reader" "ask" epsilon []) (EVal unitVal))))
 
-    ,   Def "runEff" (EVal $ Lambda {- TODO -} ["initial", "action"] (
-            Let "state" (EVal $ Var "initial") 
-            undefined
-            {- (HandleEff 2 (Lambda [] 
-                (HandleEff 1 (Lambda [] 
-                    (HandleEff 0 (Var "action") []
-                        -- get
-                        "_get" (Continue (Var "state")))) []
-                    -- put
-                    "newState" (Seq (UnsafeSet "state" (Var "newState")) (Continue (IntLit 0))))) []
-                -- throw
-                "throwResult" (Var "throwResult") -- Aborts the continuation
-            )-}))
-    
-    ,   Def "main" (EVal $ Lambda EffNil "u1" unitT 
-            (App (Var "runEff") [EVal $ IntLit 5, EVal $ Var "test"]))
+    ,   Def "main" (EVal $ Lambda EffNil "u" unitT
+        (App (EVal $ Handler (MkHandler "Reader" 
+            [
+                ("ask", ("k", "u2", (App (EVal $ Var "k") (EVal $ IntLit 5))))
+            ])) 
+            (EVal $ Var "test")))
     ]
 
-{-
-continueTest :: [Decl]
-continueTest = [
-        Def "test" (EVal $ Lambda EffNil "u" unitT (
-            Let "x" (Perform 0 (IntLit 0))
-            $ Add (EVal $ Var "x") (EVal $ Var "x")
-        ))
+-- This works too!!!
+stateTest :: [Decl]
+stateTest = let epsilon = (EffCons "State" EffNil) in [
+        DefEff "State" $ MkEffSig [
+            ("get", [], unitT, intT)
+        ,   ("put", [], intT, unitT)
+        ]
 
-    ,   DefFun "runEff" ["env", "action"] (
-            HandleEff 0 (Var "action") [] "_ask" (Continue (Var "env"))
-        )
+    ,   Def "inc" (EVal $ Lambda epsilon "_" unitT
+            $ Let "x" intT (App (EVal $ Perform "State" "get" epsilon []) (EVal unitVal))
+            $ App (EVal $ Perform "State" "put" epsilon []) (Add (EVal $ Var "x") (EVal $ IntLit 1)))
+
+    ,   Def "test" (EVal $ Lambda epsilon "_" unitT 
+            $ Let "_" unitT (App (EVal $ Var "inc") (EVal unitVal))
+            $ Let "_" unitT (App (EVal $ Var "inc") (EVal unitVal))
+            $ Let "_" unitT (App (EVal $ Var "inc") (EVal unitVal))
+            $ (EVal $ Lambda epsilon "s" intT (EVal $ Var "s")))
+
+    ,   Def "main" $ EVal $ Lambda EffNil "_" unitT
+        $ App
+            (App 
+                (EVal $ Handler (MkHandler "State" [
+                    ("get", ("k", "x", EVal 
+                        $ Lambda epsilon "y" intT 
+                            (App 
+                                (App (EVal $ Var "k") (EVal $ Var "y"))
+                                (EVal $ Var "y"))))
+                ,   ("put", ("k", "x", EVal
+                        $ Lambda epsilon "y" intT
+                            (App 
+                                (App
+                                    (EVal $ Var "k")
+                                    (EVal unitVal))
+                                (EVal $ Var "x")
+                                )))
+                ]))
+                (EVal $ Var "test"))
+        (EVal $ IntLit 2)
     ]
 
+unitVal :: Value
+unitVal = IntLit 0 -- well... let's not worry about this for now
 
-recTest :: [Decl]
-recTest = [
-        DefFun "fib" ["x"] (
-            If (LE (Var "x") (IntLit 1))
-                (IntLit 1)
-                (Add
-                    (App (Var "fib") [Add (Var "x") (IntLit (-1))])
-                    (App (Var "fib") [Add (Var "x") (IntLit (-2))]))
-        )
-    ,   DefFun "main" [] (App (Var "fib") [IntLit 10])
+
+-- Only works with reentrant (multi-shot) continuations
+nonDetTest :: [Decl]
+nonDetTest = let epsilon = EffCons "NonDet" EffNil in [
+        DefEff "NonDet" (MkEffSig 
+            [("flip", [], unitT, boolT)])
+
+    ,   Def "main" $ 
+        (App (EVal $ Handler (MkHandler "NonDet" [
+            ("flip", ("k", "x", undefined)) -- weeelll, lists are not a thing yet... let's not worry about it for now.
+        ])) undefined)
     ]
 
-callTest :: [Decl]
-callTest = [
-        DefFun "h" ["alpha", "beta"] (
-            Add (Var "alpha") (Var "beta")
-        )
+-- very relevant for tail-resumptive optimizations
+evilTest :: [Decl]
+evilTest = [
+        DefEff "evil" $ MkEffSig [
+            ("evil", [], unitT, unitT)
+        ]
 
-    ,   DefFun "g" ["a", "b"] (
-            Add (Var "a") (App (Var "h") [Var "b", Var "a"])
-        )
-    ,   DefFun "f" ["x"] (
-            If (LE (Var "x") (IntLit 1))
-                (Add (App (Var "g") [Var "x", IntLit 1]) (App (Var "h") [Var "x", Var "x"]))
-                (Add (Var "x") (Var "x"))
-        )
-        
+    ,   DefEff "reader" $ MkEffSig [
+            ("ask", [], unitT, intT)
+        ]
 
-    ,   DefFun "main" [] (App (Var "f") [IntLit 5])
-    
+    ,   Def "f" $ EVal $ Lambda EffNil "k" todoT $ 
+            (EVal $ Handler hread2)
+            `App` 
+            (EVal $ Lambda EffNil "_" unitT ((EVal $ Var "k") `App` (EVal unitVal)))
+
+    ,   Def "main" $ EVal 
+            $ Lambda EffNil "_" unitT 
+            $ (EVal $ Var "f") 
+            `App` (EVal (Handler hread) 
+                `App` (EVal $ Lambda epsilon "_" unitT 
+                    (EVal (Handler hevil) 
+                        `App` (EVal $ Lambda epsilon "_" unitT 
+                        $ Let "_" intT (EVal (Perform "reader" "ask" epsilon []) `App` EVal unitVal) 
+                        $ Let "_" unitT (EVal (Perform "evil" "evil" epsilon []) `App` EVal unitVal)
+                        $ EVal (Perform "reader" "ask" epsilon []) `App` EVal unitVal))))
     ]
--}
+    where
+        epsilon = EffCons "evil" (EffCons "reader" EffNil)
+        hevil = MkHandler "evil" [
+                ("evil", ("k", "x", EVal $ Var "k"))
+            ]
+        hread = MkHandler "reader" [
+                ("ask", ("k", "x", App (EVal $ Var "k") (EVal $ IntLit 1)))
+            ]
+        hread2 = MkHandler "reader" [
+                ("ask", ("k", "x", App (EVal $ Var "k") (EVal $ IntLit 2)))
+            ]
+
+todoT :: Type
+todoT = TyCon "TODO" KType []
+
 simpleTest :: [Decl]
 simpleTest = [
-
         Def "f" 
             (EVal $ Lambda EffNil "x" intT  
                 (EVal $ Lambda EffNil "y" intT (
@@ -112,7 +158,8 @@ unitT :: Type
 unitT = TyCon "Unit" KType []
 intT :: Type
 intT = TyCon "Int" KType []
-
+boolT :: Type
+boolT = TyCon "Bool" KType []
 
 runTest :: [Decl] -> IO ()
 runTest decls = do
@@ -130,7 +177,10 @@ runTest decls = do
 
     writeFileText "out.s" (pretty asm)
     -}
-    let racket = run $ runFreshName $ Source2Racket.compile decls
+    let racket = run 
+            $ runFreshName
+            $ evalState (MkEffContext mempty)
+            $ Source2Racket.compile decls
     putTextLn "\n<<RACKET>>"
     putTextLn (prettyRacketProgram racket)
     
@@ -139,4 +189,4 @@ runTest decls = do
     pure ()
 
 main :: IO ()
-main = runTest effTest
+main = runTest stateTest
