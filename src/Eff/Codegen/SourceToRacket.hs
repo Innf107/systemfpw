@@ -58,24 +58,30 @@ compileVal w (Handler h) = do
                 pure (RSymbol op, RLambda [v, k] [e'])
 
 compileVal _w (Perform l op _epsilon0 _tys) = do
-    w' <- freshVar @Name "w"
-    v' <- freshVar @Name "v"
-    k' <- freshVar @Name "k"
-    ev' <- freshVar @Name "ev"
-    m' <- freshVar @Name "m"
-    h' <- freshVar @Name "h"
-    f' <- freshVar @Name "f"
-    w'' <- freshVar @Name "w"
-    x' <- freshVar @Name "x"
+    w' <- freshVar @Text "w"
+    v' <- freshVar @Text "v"
+    k' <- freshVar @Text "k"
+    ev' <- freshVar @Text "ev"
+    m' <- freshVar @Text "m"
+    h' <- freshVar @Text "h"
+    f' <- freshVar @Text "f"
+    w'' <- freshVar @Text "w"
+    x' <- freshVar @Text "x"
+    resumptionArgs' <- freshVar @Text "resumption-args"
+    resumptionVal' <- freshVar @Text "resumption-val"
+    resumptionW' <- freshVar @Text "resumption-w"
     pure $ RLambda [w', v']
         [   RLet [
                 (ev', RHashRef (RVar w') (RSymbol l))
             ,   (m', RCadr 0 (RVar ev'))
             ,   (h', RCadr 1 (RVar ev'))
             ,   (f', RHashRef (RVar h') (RSymbol op))
+            ,   (resumptionArgs', RControlAt (RVar m') k' (RApp (RVar f') [RVar v', (RLambda [w'', x'] [RApp (RVar k') [RVar x']])]))
+            ,   (resumptionVal', RCadr 0 (RVar resumptionArgs'))
+            ,   (resumptionW', RCadr 1 (RVar resumptionArgs'))
             ]
             [ 
-                RControlAt (RVar m') k' (RApp (RVar f') [RVar v', (RLambda [w'', x'] [RApp (RVar k') [RVar x']])]) 
+                
             ]
         ]
 compileVal w (IntLit i) = pure $ RIntLit i

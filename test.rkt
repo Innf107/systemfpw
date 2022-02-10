@@ -1,5 +1,6 @@
 #lang racket
 (require racket/control)
+(require "./cobble.rkt")
 
 (+ 1 (let [(m1 (make-continuation-prompt-tag 'm1))]
   (prompt-at m1
