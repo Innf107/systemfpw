@@ -3,7 +3,21 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: cleff-0.2.0.0@sha256:44f84653137f507e29f278276bdd7cc4a722202d0a38d8799ad796f74135460c,5993
+    pantry-tree:
+      size: 1957
+      sha256: f259552c2019de996abea170c93baff51078b4b6bbda15fd2154b9529fef88af
+  original:
+    hackage: cleff-0.2.0.0
+- completed:
+    hackage: rec-smallarray-0.1.0.0@sha256:41032cc3fd0be87a5f5ebd8a1b66fd1ca6b3aa65df610bc847b951aee035d90c,2723
+    pantry-tree:
+      size: 383
+      sha256: a75e525e878ac0b29fda1bd07cd1e1d1d703e50b2719304551b256b9b4a6422f
+  original:
+    hackage: rec-smallarray-0.1.0.0@sha256:41032cc3fd0be87a5f5ebd8a1b66fd1ca6b3aa65df610bc847b951aee035d90c,2723
 snapshots:
 - completed:
     size: 586120

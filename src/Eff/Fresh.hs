@@ -15,24 +15,24 @@ import Eff.Prelude
 data Fresh u q m a where
     FreshVar :: u -> Fresh u q m q
 
-makeSem ''Fresh
+makeEffect ''Fresh
 
-freshVar2 :: Members [Fresh a1 b1, Fresh a2 b2] r => a1 -> a2 -> Sem r (b1, b2)
+freshVar2 :: (Fresh a1 b1 :> es, Fresh a2 b2 :> es) => a1 -> a2 -> Eff es (b1, b2)
 freshVar2 x y = (,) <$> freshVar x <*> freshVar y
 
-freshVar3 :: Members [Fresh a1 b1, Fresh a2 b2, Fresh a3 b3] r => a1 -> a2 -> a3 -> Sem r (b1, b2, b3)
+freshVar3 :: Members [Fresh a1 b1, Fresh a2 b2, Fresh a3 b3] r => a1 -> a2 -> a3 -> Eff r (b1, b2, b3)
 freshVar3 x y z = (,,) <$> freshVar x <*> freshVar y <*> freshVar z
 
-runFreshName :: Sem (Fresh Text Name : r) a -> Sem r a
+runFreshName :: Eff (Fresh Text Name : r) a -> Eff r a
 runFreshName = evalState (0 :: Int) . reinterpret \case
     FreshVar x -> do
-        i <- get
+        i <- get @Int
         put (i + 1)
         pure (x <> "_" <> show i)
 
-runFresh :: (u -> q) -> Sem (Fresh u q : r) a -> Sem r a
+runFresh :: (u -> q) -> Eff (Fresh u q : r) a -> Eff r a
 runFresh f = runFreshM (pure . f)
 
-runFreshM :: (u -> Sem r q) -> Sem (Fresh u q : r) a -> Sem r a
+runFreshM :: (u -> Eff r q) -> Eff (Fresh u q : r) a -> Eff r a
 runFreshM f = interpret \case
     FreshVar x -> f x

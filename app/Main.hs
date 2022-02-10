@@ -177,7 +177,7 @@ runTest decls = do
 
     writeFileText "out.s" (pretty asm)
     -}
-    let racket = run 
+    let racket = runPure 
             $ runFreshName
             $ evalState (MkEffContext mempty)
             $ Source2Racket.compile decls

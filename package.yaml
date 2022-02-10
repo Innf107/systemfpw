@@ -22,8 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/Innf
 dependencies:
 - base >= 4.7 && < 5
 - relude
-- polysemy
-- polysemy-plugin
+- cleff
 - text
 - lens
 - containers
@@ -31,7 +30,6 @@ dependencies:
 library:
   source-dirs: src
   ghc-options:
-  - -fplugin=Polysemy.Plugin
   - -Wall
   - -Wcompat
   - -Wincomplete-uni-patterns

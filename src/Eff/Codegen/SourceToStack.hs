@@ -21,7 +21,7 @@ data DeclState = DeclState {
 }
 makeLenses ''DeclState
 
-compile :: [Decl] -> Sem r [Def]
+compile :: [Decl] -> Eff r [Def]
 compile = undefined -- fmap concat . evalState initialCompState . traverse (evalState initialDeclState . compileDecl)
     
 {-

@@ -8,7 +8,7 @@ import Eff.Fresh
 
 data EffContext = MkEffContext {unEffContext :: Map Name EffSig}
 
-compile :: (Members '[Fresh Text Name, State EffContext] r) => [Decl] -> Sem r [RacketExpr]
+compile :: (Members '[Fresh Text Name, State EffContext] r) => [Decl] -> Eff r [RacketExpr]
 compile (Def x e : r) = (:) 
     <$> (RDefine x <$> compileExpr (RHash []) e)
     <*> compile r
@@ -17,7 +17,7 @@ compile (DefEff l sig : r) = do
     compile r
 compile [] = pure []
 
-compileExpr :: (Members '[Fresh Text Name]) r => RacketExpr -> Expr -> Sem r RacketExpr
+compileExpr :: (Members '[Fresh Text Name]) r => RacketExpr -> Expr -> Eff r RacketExpr
 compileExpr w (EVal v) = compileVal w v
 compileExpr w (App e1 e2) = do
     e1' <- compileExpr w e1
@@ -33,17 +33,17 @@ compileExpr w (Add e1 e2) = RAdd <$> compileExpr w e1 <*> compileExpr w e2
 compileExpr w (LE e1 e2) = RLE <$> compileExpr w e1 <*> compileExpr w e2
 compileExpr w (If c th el) = RIf <$> compileExpr w c <*> compileExpr w th <*> compileExpr w el
 
-compileVal :: (Members '[Fresh Text Name]) r => RacketExpr -> Value -> Sem r RacketExpr
+compileVal :: (Members '[Fresh Text Name]) r => RacketExpr -> Value -> Eff r RacketExpr
 compileVal w (Var x) = pure $ RVar x
 compileVal w (Lambda _es x _ty e) = do
-    w' <- freshVar "w"
+    w' <- freshVar @Text "w"
     RLambda [w', x] . pure <$> compileExpr (RVar w') e
 compileVal w (TyLambda _x _k v) = compileVal w v -- TODO: ?
 compileVal w (Handler h) = do
-    body' <- freshVar "body"
-    m' <- freshVar "m"
-    w' <- freshVar "w"
-    w'' <- freshVar "w"
+    body' <- freshVar @Text "body"
+    m' <- freshVar @Text "m"
+    w' <- freshVar @Text "w"
+    w'' <- freshVar @Text "w"
     handlerHash <- handlerToHash h
     pure $ RLambda [w', body'] 
          [ RLet [ (m', RMakeContinuationPromptTag m')
@@ -58,15 +58,15 @@ compileVal w (Handler h) = do
                 pure (RSymbol op, RLambda [v, k] [e'])
 
 compileVal _w (Perform l op _epsilon0 _tys) = do
-    w' <- freshVar "w"
-    v' <- freshVar "v"
-    k' <- freshVar "k"
-    ev' <- freshVar "ev"
-    m' <- freshVar "m"
-    h' <- freshVar "h"
-    f' <- freshVar "f"
-    w'' <- freshVar "w"
-    x' <- freshVar "x"
+    w' <- freshVar @Name "w"
+    v' <- freshVar @Name "v"
+    k' <- freshVar @Name "k"
+    ev' <- freshVar @Name "ev"
+    m' <- freshVar @Name "m"
+    h' <- freshVar @Name "h"
+    f' <- freshVar @Name "f"
+    w'' <- freshVar @Name "w"
+    x' <- freshVar @Name "x"
     pure $ RLambda [w', v']
         [   RLet [
                 (ev', RHashRef (RVar w') (RSymbol l))

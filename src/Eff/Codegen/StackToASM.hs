@@ -10,21 +10,21 @@ import Eff.ASMx64 as A
 import Data.Map qualified as M
 
 compile :: [Def] -> AsmProgram
-compile defs = let (strings, instrs) = run $ runCacheStateCounterOrdMap $ traverse compileDef defs 
+compile defs = let (strings, instrs) = runPure $ runCacheStateCounterOrdMap $ traverse compileDef defs 
                in AsmProgram (instrs <> [AsmData "strings" (map makeStringLit (M.toList strings))])
             where
                   makeStringLit :: (Text, Int) -> Text
                   makeStringLit (lit, sid) = "string" <> show sid <> ": " <> show lit 
 
-compileDef :: Members '[CacheState Text Int] r => Def -> Sem r AsmSection
+compileDef :: Members '[CacheState Text Int] r => Def -> Eff r AsmSection
 compileDef (DefProc "main" instrs) = AsmProc "_main" . AsmInstrs . concat <$> traverse compileInstrWithComment instrs
 compileDef (DefProc name instrs)   = AsmProc name . AsmInstrs . concat <$> traverse compileInstrWithComment instrs
 
 -- | Like compileInstr, but adds a comment with the Stack instruction
-compileInstrWithComment :: Members '[CacheState Text Int] r => Instr -> Sem r [Text]
+compileInstrWithComment :: Members '[CacheState Text Int] r => Instr -> Eff r [Text]
 compileInstrWithComment instr = (("; " <> pretty instr):) <$> compileInstr instr
 
-compileInstr :: Members '[CacheState Text Int] r => Instr -> Sem r [Text]
+compileInstr :: Members '[CacheState Text Int] r => Instr -> Eff r [Text]
 compileInstr (Push n)   = pure [ "push " <> show n ]
 compileInstr (Drop n)   = pure [ "add rsp " <> show (n * 8) ]
 compileInstr (Shift n)  = pure [ "push qword [rsp+" <> show (8*n) <> "]" ]
@@ -87,7 +87,7 @@ compileInstr (RestoreEffPrompt ix) = undefined
 
 compileInstr (ProcAddress "main") = pure [ "push _main" ]
 compileInstr (ProcAddress x) = pure [ "push " <> x ]
-compileInstr (Panic msg) = cached msg <&> \strId -> [ "mov rax, string" <> show strId ]
+compileInstr (Panic msg) = cached msg <&> \(strId :: Int) -> [ "mov rax, string" <> show strId ]
 
 
 
