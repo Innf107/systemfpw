@@ -74,7 +74,9 @@ compileVal _w (Perform l op _epsilon0 _tys) = do
             ,   (h', RCadr 1 (RVar ev'))
             ,   (f', RHashRef (RVar h') (RSymbol op))
             ]
-            [ RControlAt (RVar m') k' (RApp (RVar f') [RVar v', (RLambda [w'', x'] [RApp (RVar k') [RVar x']])]) ]
+            [ 
+                RControlAt (RVar m') k' (RApp (RVar f') [RVar v', (RLambda [w'', x'] [RApp (RVar k') [RVar x']])]) 
+            ]
         ]
 compileVal w (IntLit i) = pure $ RIntLit i
 

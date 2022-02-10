@@ -86,6 +86,35 @@ nonDetTest = let epsilon = EffCons "NonDet" EffNil in [
         ])) undefined)
     ]
 
+-- This also works!
+overrideTest :: [Decl]
+overrideTest = [
+        DefEff "Reader" $ MkEffSig [
+            ("ask", [], unitT, intT)
+        ]
+    
+    ,   Def "test" $ EVal $ Lambda epsilon "_" unitT 
+        $ Let "x" intT perfAsk
+        $ Add 
+            (EVal (Var "x")) 
+            (App (EVal $ Handler hreader1) 
+                (EVal $ Lambda epsilon "_" unitT perfAsk))
+    
+    ,   Def "main" $ EVal $ Lambda epsilon "_" unitT
+        $ App (EVal $ Handler hreader2) (EVal $ Var "test")
+    ]
+    where 
+        epsilon = EffCons "Reader" EffNil
+
+        hreader1 = MkHandler "Reader" [
+                ("ask", ("k", "_", App (EVal $ Var "k") (EVal (IntLit 1))))
+            ]
+        hreader2 = MkHandler "Reader" [
+                ("ask", ("k", "_", App (EVal $ Var "k") (EVal (IntLit 2))))
+            ]
+
+        perfAsk = App (EVal $ Perform "Reader" "ask" epsilon []) (EVal unitVal)
+
 -- very relevant for tail-resumptive optimizations
 evilTest :: [Decl]
 evilTest = [
@@ -109,9 +138,9 @@ evilTest = [
                 `App` (EVal $ Lambda epsilon "_" unitT 
                     (EVal (Handler hevil) 
                         `App` (EVal $ Lambda epsilon "_" unitT 
-                        $ Let "_" intT (EVal (Perform "reader" "ask" epsilon []) `App` EVal unitVal) 
-                        $ Let "_" unitT (EVal (Perform "evil" "evil" epsilon []) `App` EVal unitVal)
-                        $ EVal (Perform "reader" "ask" epsilon []) `App` EVal unitVal))))
+                        $ Let "_" intT perfAsk
+                        $ Let "_" unitT perfEvil
+                        $ perfAsk))))
     ]
     where
         epsilon = EffCons "evil" (EffCons "reader" EffNil)
@@ -124,6 +153,8 @@ evilTest = [
         hread2 = MkHandler "reader" [
                 ("ask", ("k", "x", App (EVal $ Var "k") (EVal $ IntLit 2)))
             ]
+        perfAsk  = App (EVal $ Perform "reader" "ask"  epsilon []) (EVal unitVal)
+        perfEvil = App (EVal $ Perform "evil"   "evil" epsilon []) (EVal unitVal)
 
 todoT :: Type
 todoT = TyCon "TODO" KType []
@@ -177,7 +208,7 @@ runTest decls = do
 
     writeFileText "out.s" (pretty asm)
     -}
-    let racket = runPure 
+    let racket = runPure
             $ runFreshName
             $ evalState (MkEffContext mempty)
             $ Source2Racket.compile decls
@@ -189,4 +220,4 @@ runTest decls = do
     pure ()
 
 main :: IO ()
-main = runTest stateTest
+main = runTest evilTest

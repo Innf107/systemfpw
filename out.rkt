@@ -1,155 +1,210 @@
 #lang racket
 
 (require racket/control)
-(define inc (lambda (w_0 _) 
-        (let* [
-            (x ((lambda (w_1 v_2) 
-                (let* [
-                    (ev_4 (hash-ref 
-                        w_1
-                        'State
-                    ))
-                    (m_5 (car ev_4))
-                    (h_6 (cadr ev_4))
-                    (f_7 (hash-ref 
-                        h_6
-                        'get
-                    ))
-                ]
-                
-                    (shift0-at m_5 k_3
-                        (f_7
-                            v_2
-                            (lambda (w_8 x_9) 
-                                (k_3
-                                    x_9
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-                w_0
-                0
-            ))
-        ]
-        
-            ((lambda (w_10 v_11) 
-                (let* [
-                    (ev_13 (hash-ref 
-                        w_10
-                        'State
-                    ))
-                    (m_14 (car ev_13))
-                    (h_15 (cadr ev_13))
-                    (f_16 (hash-ref 
-                        h_15
-                        'put
-                    ))
-                ]
-                
-                    (shift0-at m_14 k_12
-                        (f_16
-                            v_11
-                            (lambda (w_17 x_18) 
-                                (k_12
-                                    x_18
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-                w_0
-                (+ 
-                    x
-                    1
-                )
-            )
-        )
-    ))
-(define test (lambda (w_19 _) 
-        (let* [
-            (_ (inc
-                w_19
-                0
-            ))
-        ]
-        
+(define f (lambda (w_0 k) 
+        (println k)
+        ((lambda (w_3 body_1) 
             (let* [
-                (_ (inc
-                    w_19
-                    0
+                (m_2 (make-continuation-prompt-tag 'm_2))
+                (w_4 (hash-set 
+                    w_3
+                    'reader
+                    (list 
+                        m_2
+                        (hash 
+                            'ask
+                            (lambda (x k) 
+                                (k
+                                    w_0
+                                    2
+                                )
+                            )
+                        )
+                        w_3
+                    )
                 ))
             ]
             
-                (let* [
-                    (_ (inc
-                        w_19
+                (reset0-at m_2
+                    (body_1
+                        w_4
                         0
-                    ))
-                ]
-                
-                    (lambda (w_20 s) 
-                        s
                     )
                 )
             )
         )
+            w_0
+            (lambda (w_5 _) 
+                (k
+                    w_5
+                    0
+                )
+            )
+        )
     ))
-(define main (lambda (w_21 _) 
-        (((lambda (w_24 body_22) 
-            (let* [
-                (m_23 (make-continuation-prompt-tag 'm_23))
-                (w_25 (hash-set 
-                    w_24
-                    'State
-                    (list 
-                        m_23
-                        (hash 
-                            'get
-                            (lambda (x k) 
-                                (lambda (w_26 y) 
-                                    ((k
-                                        w_26
-                                        y
-                                    )
-                                        w_26
-                                        y
+(define main (lambda (w_6 _) 
+        (f
+            w_6
+            ((lambda (w_9 body_7) 
+                (let* [
+                    (m_8 (make-continuation-prompt-tag 'm_8))
+                    (w_10 (hash-set 
+                        w_9
+                        'reader
+                        (list 
+                            m_8
+                            (hash 
+                                'ask
+                                (lambda (x k) 
+                                    (k
+                                        w_6
+                                        1
                                     )
                                 )
                             )
-                            'put
-                            (lambda (x k) 
-                                (lambda (w_27 y) 
-                                    ((k
-                                        w_27
+                            w_9
+                        )
+                    ))
+                ]
+                
+                    (reset0-at m_8
+                        (body_7
+                            w_10
+                            0
+                        )
+                    )
+                )
+            )
+                w_6
+                (lambda (w_11 _) 
+                    ((lambda (w_14 body_12) 
+                        (let* [
+                            (m_13 (make-continuation-prompt-tag 'm_13))
+                            (w_15 (hash-set 
+                                w_14
+                                'evil
+                                (list 
+                                    m_13
+                                    (hash 
+                                        'evil
+                                        (lambda (x k) 
+                                            k
+                                        )
+                                    )
+                                    w_14
+                                )
+                            ))
+                        ]
+                        
+                            (reset0-at m_13
+                                (body_12
+                                    w_15
+                                    0
+                                )
+                            )
+                        )
+                    )
+                        w_11
+                        (lambda (w_16 _) 
+                            (let* [
+                                (_ ((lambda (w_17 v_18) 
+                                    (let* [
+                                        (ev_20 (hash-ref 
+                                            w_17
+                                            'reader
+                                        ))
+                                        (m_21 (car ev_20))
+                                        (h_22 (cadr ev_20))
+                                        (f_23 (hash-ref 
+                                            h_22
+                                            'ask
+                                        ))
+                                    ]
+                                    
+                                        (shift0-at m_21 k_19
+                                            (f_23
+                                                v_18
+                                                (lambda (w_24 x_25) 
+                                                    (k_19
+                                                        x_25
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                                    w_16
+                                    0
+                                ))
+                            ]
+                            
+                                (let* [
+                                    (_ ((lambda (w_26 v_27) 
+                                        (let* [
+                                            (ev_29 (hash-ref 
+                                                w_26
+                                                'evil
+                                            ))
+                                            (m_30 (car ev_29))
+                                            (h_31 (cadr ev_29))
+                                            (f_32 (hash-ref 
+                                                h_31
+                                                'evil
+                                            ))
+                                        ]
+                                        
+                                            (shift0-at m_30 k_28
+                                                (f_32
+                                                    v_27
+                                                    (lambda (w_33 x_34) 
+                                                        (k_28
+                                                            x_34
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                        w_16
+                                        0
+                                    ))
+                                ]
+                                
+                                    ((lambda (w_35 v_36) 
+                                        (let* [
+                                            (ev_38 (hash-ref 
+                                                w_35
+                                                'reader
+                                            ))
+                                            (m_39 (car ev_38))
+                                            (h_40 (cadr ev_38))
+                                            (f_41 (hash-ref 
+                                                h_40
+                                                'ask
+                                            ))
+                                        ]
+                                        
+                                            (shift0-at m_39 k_37
+                                                (f_41
+                                                    v_36
+                                                    (lambda (w_42 x_43) 
+                                                        (k_37
+                                                            x_43
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                        w_16
                                         0
                                     )
-                                        w_27
-                                        x
-                                    )
                                 )
                             )
                         )
-                        w_24
-                    )
-                ))
-            ]
-            
-                (reset0-at m_23
-                    (body_22
-                        w_25
-                        0
                     )
                 )
             )
-        )
-            w_21
-            test
-        )
-            w_21
-            2
         )
     ))
 
