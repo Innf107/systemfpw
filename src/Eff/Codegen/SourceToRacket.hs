@@ -8,38 +8,44 @@ import Eff.Fresh
 
 data EffContext = MkEffContext {unEffContext :: Map Name EffSig}
 
+
 compile :: (Members '[Fresh Text Name, State EffContext] r) => [Decl] -> Eff r [RacketExpr]
 compile (Def x e : r) = (:) 
-    <$> (RDefine x <$> compileExpr (RHash []) e)
+    <$> (RDefine x <$> compileExpr e)
     <*> compile r
 compile (DefEff l sig : r) = do
     modify (\(MkEffContext m) -> MkEffContext (insert l sig m))
     compile r
 compile [] = pure []
 
-compileExpr :: (Members '[Fresh Text Name]) r => RacketExpr -> Expr -> Eff r RacketExpr
-compileExpr w (EVal v) = compileVal w v
-compileExpr w (App e1 e2) = do
-    e1' <- compileExpr w e1
-    e2' <- compileExpr w e2
-    pure $ RApp e1' [w, e2']
+compileExpr :: (Members '[Fresh Text Name]) r => Expr -> Eff r RacketExpr
+compileExpr (EVal v) = compileVal v
+compileExpr (App e1 e2) = RApp <$> compileExpr e1 <*> (pure <$> compileExpr e2)
 
-compileExpr w (AppType e _ty) = compileExpr w e -- Types are erased
-compileExpr w (Let x _ty e1 e2) = do
-    e1' <- compileExpr w e1
-    RLet [(x, e1')] . pure <$> compileExpr w e2
+compileExpr (AppType e _ty) = compileExpr e -- Types are erased
+compileExpr (Let x _ty e1 e2) = do
+    e1' <- compileExpr e1
+    RLet [(x, e1')] . pure <$> compileExpr e2
 
-compileExpr w (Add e1 e2) = RAdd <$> compileExpr w e1 <*> compileExpr w e2
-compileExpr w (LE e1 e2) = RLE <$> compileExpr w e1 <*> compileExpr w e2
-compileExpr w (If c th el) = RIf <$> compileExpr w c <*> compileExpr w th <*> compileExpr w el
+compileExpr (Add e1 e2) = RAdd <$> compileExpr e1 <*> compileExpr e2
+compileExpr (LE e1 e2) = RLE <$> compileExpr e1 <*> compileExpr e2
+compileExpr (If c th el) = RIf <$> compileExpr c <*> compileExpr th <*> compileExpr el
 
-compileVal :: (Members '[Fresh Text Name]) r => RacketExpr -> Value -> Eff r RacketExpr
-compileVal w (Var x) = pure $ RVar x
-compileVal w (Lambda _es x _ty e) = do
-    w' <- freshVar @Text "w"
-    RLambda [w', x] . pure <$> compileExpr (RVar w') e
-compileVal w (TyLambda _x _k v) = compileVal w v -- TODO: ?
-compileVal w (Handler h) = do
+compileVal :: (Members '[Fresh Text Name]) r => Value -> Eff r RacketExpr
+compileVal (Var x) = pure $ RVar x
+compileVal (Lambda _es x _ty e) = 
+    RLambda [x] . pure <$> compileExpr e
+
+compileVal (TyLambda _x _k v) = compileVal v -- TODO: ?
+compileVal (Handler h@(MkHandler l _)) = do
+	h' <- handlerToHash h
+	pure $ RApp (RVar "handler") [RSymbol l, h']
+	where
+		handlerToHash (MkHandler l ops) = RHash <$> forM ops \(op, (k, v, e)) -> do
+			e' <- compileExpr e
+			pure (RSymbol op, RLambda [v, k] [e'])
+{-
+compileVal (Handler h) = do
     body' <- freshVar @Text "body"
     m' <- freshVar @Text "m"
     w' <- freshVar @Text "w"
@@ -56,33 +62,8 @@ compileVal w (Handler h) = do
             handlerToHash (MkHandler l ops) = RHash <$> forM ops \(op, (k, v, e)) -> do
                 e' <- compileExpr w e
                 pure (RSymbol op, RLambda [v, k] [e'])
-
-compileVal _w (Perform l op _epsilon0 _tys) = do
-    w' <- freshVar @Text "w"
-    v' <- freshVar @Text "v"
-    k' <- freshVar @Text "k"
-    ev' <- freshVar @Text "ev"
-    m' <- freshVar @Text "m"
-    h' <- freshVar @Text "h"
-    f' <- freshVar @Text "f"
-    w'' <- freshVar @Text "w"
-    x' <- freshVar @Text "x"
-    resumptionArgs' <- freshVar @Text "resumption-args"
-    resumptionVal' <- freshVar @Text "resumption-val"
-    resumptionW' <- freshVar @Text "resumption-w"
-    pure $ RLambda [w', v']
-        [   RLet [
-                (ev', RHashRef (RVar w') (RSymbol l))
-            ,   (m', RCadr 0 (RVar ev'))
-            ,   (h', RCadr 1 (RVar ev'))
-            ,   (f', RHashRef (RVar h') (RSymbol op))
-            ,   (resumptionArgs', RControlAt (RVar m') k' (RApp (RVar f') [RVar v', (RLambda [w'', x'] [RApp (RVar k') [RVar x']])]))
-            ,   (resumptionVal', RCadr 0 (RVar resumptionArgs'))
-            ,   (resumptionW', RCadr 1 (RVar resumptionArgs'))
-            ]
-            [ 
-                
-            ]
-        ]
-compileVal w (IntLit i) = pure $ RIntLit i
+-}
+compileVal (Perform l op _epsilon0 _tys) = pure $ RApp (RVar "perform") [RSymbol l, RSymbol op]
+        
+compileVal (IntLit i) = pure $ RIntLit i
 

@@ -68,6 +68,7 @@ prettyRacketProgram :: [RacketExpr] -> Text
 prettyRacketProgram es = unlines [
                           "#lang racket\n" 
                         , "(require racket/control)"
+			, "(require \"./cobble.rkt\")"
                         , unlines (map pretty es) 
-                        , "(println (main (hash) 0))"
+                        , "(println (main '()))"
                         ]
