@@ -10,6 +10,7 @@ import Eff.Codegen.StackToASM as Stack2ASM
 import Eff.Fresh
 
 -- This works!!!
+-- Expected: 10
 readerTest :: [Decl]
 readerTest = [
         DefEff "Reader" $ MkEffSig [
@@ -31,6 +32,7 @@ readerTest = [
     ]
 
 -- This works too!!!
+-- Expected: 5
 stateTest :: [Decl]
 stateTest = let epsilon = (EffCons "State" EffNil) in [
         DefEff "State" $ MkEffSig [
@@ -87,6 +89,7 @@ nonDetTest = let epsilon = EffCons "NonDet" EffNil in [
     ]
 
 -- This also works!
+-- Expected: 3
 overrideTest :: [Decl]
 overrideTest = [
         DefEff "Reader" $ MkEffSig [
@@ -116,6 +119,8 @@ overrideTest = [
         perfAsk = App (EVal $ Perform "Reader" "ask" epsilon []) (EVal unitVal)
 
 -- very relevant for tail-resumptive optimizations
+-- This Works!
+-- Expected: 2
 evilTest :: [Decl]
 evilTest = [
         DefEff "evil" $ MkEffSig [

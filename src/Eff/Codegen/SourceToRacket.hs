@@ -38,12 +38,12 @@ compileVal (Lambda _es x _ty e) =
 
 compileVal (TyLambda _x _k v) = compileVal v -- TODO: ?
 compileVal (Handler h@(MkHandler l _)) = do
-	h' <- handlerToHash h
-	pure $ RApp (RVar "handler") [RSymbol l, h']
-	where
-		handlerToHash (MkHandler l ops) = RHash <$> forM ops \(op, (k, v, e)) -> do
-			e' <- compileExpr e
-			pure (RSymbol op, RLambda [v, k] [e'])
+    h' <- handlerToHash h
+    pure $ RApp (RVar "handler") [RSymbol l, h']
+    where
+        handlerToHash (MkHandler l ops) = RHash <$> forM ops \(op, (k, v, e)) -> do
+            e' <- compileExpr e
+            pure (RSymbol op, RLambda [v, k] [e'])
 {-
 compileVal (Handler h) = do
     body' <- freshVar @Text "body"
